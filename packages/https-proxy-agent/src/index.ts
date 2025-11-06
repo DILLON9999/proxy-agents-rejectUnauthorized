@@ -86,7 +86,7 @@ export class HttpsProxyAgent<Uri extends string> extends Agent {
 		this.connectOpts = {
 			// Attempt to negotiate http/1.1 for proxy servers that support http/2
 			ALPNProtocols: ['http/1.1'],
-			...(opts ? omit(opts, 'headers') : null),
+			...(opts ? omit(opts, 'headers', 'cookies') : null),
 			host,
 			port,
 		};
@@ -159,13 +159,25 @@ export class HttpsProxyAgent<Uri extends string> extends Agent {
 				// The proxy is connecting to a TLS server, so upgrade
 				// this socket connection to a TLS connection.
 				debug('Upgrading socket connection to TLS');
-				return tls.connect({
+				const tlsOpts: tls.ConnectionOptions = {
 					...omit(
 						setServernameFromNonIpHost(opts),
 						'host',
 						'path',
 						'port'
 					),
+				};
+				
+				// Inherit rejectUnauthorized from agent if not set in opts
+				if (
+					this.connectOpts.rejectUnauthorized !== undefined &&
+					tlsOpts.rejectUnauthorized === undefined
+				) {
+					tlsOpts.rejectUnauthorized = this.connectOpts.rejectUnauthorized;
+				}
+				
+				return tls.connect({
+					...tlsOpts,
 					socket,
 				});
 			}
